@@ -5,6 +5,11 @@ exports.findAll = async (client = pool) => {
     return rows;
 };
 
+exports.findById = async (id, client = pool) => {
+    const { rows } = await client.query('SELECT * FROM companies WHERE id = $1', [id]);
+    return rows[0];
+};
+
 // Used by the seed script
 exports.create = async ({ name, address, website, description, tel }, client = pool) => {
     const { rows } = await client.query(

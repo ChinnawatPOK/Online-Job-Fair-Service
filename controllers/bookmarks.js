@@ -1,7 +1,6 @@
 const Bookmark = require('../models/Bookmark');
 const Company = require('../models/Company');
 
-// Postgres integer ids: reject anything else so the query never sees a bad cast
 const isValidId = (id) => /^\d+$/.test(String(id)) && Number(id) <= 2147483647;
 
 // @route   POST /api/v1/users/me/bookmarks
