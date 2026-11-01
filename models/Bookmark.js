@@ -23,7 +23,7 @@ exports.findByUser = async (userId, client = pool) => {
 
 exports.remove = async (userId, companyId, client = pool) => {
     const { rowCount } = await client.query(
-        'DELETE FROM bookmarks WHERE user_id = $1',
+        'DELETE FROM bookmarks WHERE user_id = $1 AND company_id = $2',
         [userId, companyId]
     );
     return rowCount > 0;
