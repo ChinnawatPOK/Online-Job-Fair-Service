@@ -31,6 +31,12 @@ exports.findById = async (id, client = pool) => {
     return rows[0];
 };
 
+// Locks the row until commit, so concurrent changes are logged in the order they happen
+exports.findByIdForUpdate = async (id, client) => {
+    const { rows } = await client.query('SELECT * FROM bookings WHERE id = $1 FOR UPDATE', [id]);
+    return rows[0];
+};
+
 exports.existsForUserAndCompany = async (userId, companyId, client = pool) => {
     const { rows } = await client.query(
         'SELECT EXISTS (SELECT 1 FROM bookings WHERE user_id = $1 AND company_id = $2) AS exists',
