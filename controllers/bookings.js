@@ -101,6 +101,35 @@ exports.updateBooking = async (req, res, next) => {
     }
 };
 
+// @route   DELETE /api/v1/bookings/:id
+exports.deleteBooking = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        if (!isValidId(id)) {
+            return res.status(400).json({ success: false, message: 'Please provide a valid booking id' });
+        }
+
+        const booking = await Booking.findById(id);
+        if (!booking) {
+            return res.status(404).json({ success: false, message: `No booking with the id of ${id}` });
+        }
+        if (req.user.role !== 'admin' && booking.user_id !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'Not authorized to delete this booking' });
+        }
+
+        const removed = await Booking.remove(id);
+        if (!removed) {
+            return res.status(404).json({ success: false, message: `No booking with the id of ${id}` });
+        }
+
+        res.status(200).json({ success: true, data: {} });
+    } catch (err) {
+        console.log(err.stack);
+        res.status(500).json({ success: false, message: 'Cannot delete booking' });
+    }
+};
+
 // @route   GET /api/v1/bookings/me
 exports.getMyBookings = async (req, res, next) => {
     try {

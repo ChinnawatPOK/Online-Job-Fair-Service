@@ -44,6 +44,11 @@ exports.update = async (id, { companyId, bookingDate }, client = pool) => {
     return rows[0];
 };
 
+exports.remove = async (id, client = pool) => {
+    const { rowCount } = await client.query('DELETE FROM bookings WHERE id = $1', [id]);
+    return rowCount > 0;
+};
+
 // Returns the new booking, or null when the user has already reached the limit.
 // The user row stays locked until commit, so concurrent requests from the same
 // user run one at a time and cannot pass the limit.
