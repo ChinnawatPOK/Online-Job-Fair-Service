@@ -1,0 +1,8 @@
+node_modules
+config/config.env
+.git
+.gitignore
+.DS_Store
+Dockerfile
+docker-compose.yml
+__tests__

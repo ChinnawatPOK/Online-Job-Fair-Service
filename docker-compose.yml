@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16
+    container_name: jobfair-db
+    environment:
+      POSTGRES_USER: jobfair
+      POSTGRES_PASSWORD: jobfair
+      POSTGRES_DB: jobfair
+    ports:
+      - "5432:5432"
+    volumes:
+      - jobfair-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobfair -d jobfair"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: jobfair-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 5050
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: jobfair
+      DB_PASSWORD: jobfair
+      DB_NAME: jobfair
+      JWT_SECRET: ${JWT_SECRET:-jobfair-dev-secret}
+      JWT_EXPIRE: 30d
+      JWT_COOKIE_EXPIRE: 30
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-12345678}
+    ports:
+      - "${API_PORT:-5050}:5050"
+
+volumes:
+  jobfair-data:
