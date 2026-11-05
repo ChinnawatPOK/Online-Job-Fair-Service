@@ -26,6 +26,24 @@ exports.findByUser = async (userId, client = pool) => {
     return rows;
 };
 
+exports.findById = async (id, client = pool) => {
+    const { rows } = await client.query('SELECT * FROM bookings WHERE id = $1', [id]);
+    return rows[0];
+};
+
+// Fields left undefined keep their current value
+exports.update = async (id, { companyId, bookingDate }, client = pool) => {
+    const { rows } = await client.query(
+        `UPDATE bookings
+         SET company_id = COALESCE($2, company_id),
+             booking_date = COALESCE($3, booking_date)
+         WHERE id = $1
+         RETURNING *`,
+        [id, companyId, bookingDate]
+    );
+    return rows[0];
+};
+
 // Returns the new booking, or null when the user has already reached the limit.
 // The user row stays locked until commit, so concurrent requests from the same
 // user run one at a time and cannot pass the limit.
