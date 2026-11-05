@@ -11,3 +11,39 @@ exports.findAll = async (client = pool) => {
     );
     return rows;
 };
+
+// Returns the new booking, or null when the user has already reached the limit.
+// The user row stays locked until commit, so concurrent requests from the same
+// user run one at a time and cannot pass the limit.
+exports.createWithinLimit = async (userId, companyId, bookingDate, limit) => {
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+        await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+
+        const { rows: [{ count }] } = await client.query(
+            'SELECT COUNT(*)::int AS count FROM bookings WHERE user_id = $1',
+            [userId]
+        );
+
+        if (count >= limit) {
+            await client.query('ROLLBACK');
+            return null;
+        }
+
+        const { rows } = await client.query(
+            `INSERT INTO bookings (user_id, company_id, booking_date)
+             VALUES ($1, $2, $3) RETURNING *`,
+            [userId, companyId, bookingDate]
+        );
+
+        await client.query('COMMIT');
+        return rows[0];
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+};
