@@ -1,5 +1,7 @@
 const Booking = require('../models/Booking');
 const Company = require('../models/Company');
+const AuditLog = require('../models/AuditLog');
+const { withTransaction } = require('../config/pgdb');
 
 const MAX_BOOKINGS_PER_USER = 3;
 const BOOKING_DATE_START = '2022-05-10';
@@ -16,6 +18,8 @@ const isValidBookingDate = (date) =>
     /^\d{4}-\d{2}-\d{2}$/.test(date) &&
     date >= BOOKING_DATE_START &&
     date <= BOOKING_DATE_END;
+
+const snapshot = ({ user_id, company_id, booking_date }) => ({ user_id, company_id, booking_date });
 
 // @route   POST /api/v1/bookings
 exports.createBooking = async (req, res, next) => {
@@ -89,7 +93,20 @@ exports.updateBooking = async (req, res, next) => {
             }
         }
 
-        const updated = await Booking.update(id, { companyId, bookingDate });
+        // The booking and its audit log are saved together, or not at all
+        const updated = await withTransaction(async (client) => {
+            const before = await Booking.findByIdForUpdate(id, client);
+            if (!before) return null;
+
+            const after = await Booking.update(id, { companyId, bookingDate }, client);
+            await AuditLog.create({
+                actor: req.user,
+                action: 'BOOKING_UPDATED',
+                bookingId: after.id,
+                details: { before: snapshot(before), after: snapshot(after) }
+            }, client);
+            return after;
+        });
         if (!updated) {
             return res.status(404).json({ success: false, message: `No booking with the id of ${id}` });
         }
@@ -118,7 +135,20 @@ exports.deleteBooking = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Not authorized to delete this booking' });
         }
 
-        const removed = await Booking.remove(id);
+        // The delete and its audit log are saved together, or not at all
+        const removed = await withTransaction(async (client) => {
+            const before = await Booking.findByIdForUpdate(id, client);
+            if (!before) return false;
+
+            await Booking.remove(id, client);
+            await AuditLog.create({
+                actor: req.user,
+                action: 'BOOKING_DELETED',
+                bookingId: before.id,
+                details: { before: snapshot(before) }
+            }, client);
+            return true;
+        });
         if (!removed) {
             return res.status(404).json({ success: false, message: `No booking with the id of ${id}` });
         }

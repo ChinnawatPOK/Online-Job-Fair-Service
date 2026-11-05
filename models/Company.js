@@ -1,7 +1,13 @@
 const { pool } = require('../config/pgdb');
 
 exports.findAll = async (client = pool) => {
-    const { rows } = await client.query('SELECT * FROM companies ORDER BY id');
+    const { rows } = await client.query(
+        `SELECT c.*, ROUND(AVG(r.rating), 2)::float8 AS average_rating, COUNT(r.id)::int AS review_count
+         FROM companies c
+         LEFT JOIN reviews r ON r.company_id = c.id
+         GROUP BY c.id
+         ORDER BY c.id`
+    );
     return rows;
 };
 
