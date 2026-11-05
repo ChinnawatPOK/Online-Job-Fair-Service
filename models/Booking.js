@@ -12,6 +12,20 @@ exports.findAll = async (client = pool) => {
     return rows;
 };
 
+exports.findByUser = async (userId, client = pool) => {
+    const { rows } = await client.query(
+        `SELECT b.id, b.user_id, b.company_id, b.booking_date, b.created_at,
+                c.name AS company_name, c.address AS company_address,
+                c.website AS company_website, c.tel AS company_tel
+         FROM bookings b
+         JOIN companies c ON c.id = b.company_id
+         WHERE b.user_id = $1
+         ORDER BY b.booking_date, b.id`,
+        [userId]
+    );
+    return rows;
+};
+
 // Returns the new booking, or null when the user has already reached the limit.
 // The user row stays locked until commit, so concurrent requests from the same
 // user run one at a time and cannot pass the limit.

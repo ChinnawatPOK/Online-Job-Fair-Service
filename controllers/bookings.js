@@ -52,6 +52,17 @@ exports.createBooking = async (req, res, next) => {
     }
 };
 
+// @route   GET /api/v1/bookings/me
+exports.getMyBookings = async (req, res, next) => {
+    try {
+        const bookings = await Booking.findByUser(req.user.id);
+        res.status(200).json({ success: true, count: bookings.length, data: bookings });
+    } catch (err) {
+        console.log(err.stack);
+        res.status(500).json({ success: false, message: 'Cannot find bookings' });
+    }
+};
+
 // @route   GET /api/v1/bookings
 exports.getBookings = async (req, res, next) => {
     try {
