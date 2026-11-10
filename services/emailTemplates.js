@@ -1,5 +1,3 @@
-// Email layouts use tables and inline styles because most email clients ignore <style> and flexbox
-
 const EVENT_NAME = 'Online Job Fair 2022';
 const BRAND_COLOR = '#1d4ed8';
 
