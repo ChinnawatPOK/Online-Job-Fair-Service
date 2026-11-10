@@ -2,6 +2,7 @@ const Booking = require('../models/Booking');
 const Company = require('../models/Company');
 const AuditLog = require('../models/AuditLog');
 const { withTransaction } = require('../config/pgdb');
+const emailService = require('../services/emailService');
 
 const MAX_BOOKINGS_PER_USER = 3;
 const BOOKING_DATE_START = '2022-05-10';
@@ -20,6 +21,8 @@ const isValidBookingDate = (date) =>
     date <= BOOKING_DATE_END;
 
 const snapshot = ({ user_id, company_id, booking_date }) => ({ user_id, company_id, booking_date });
+
+const isAdminActingOnOthers = (user, booking) => user.role === 'admin' && booking.user_id !== user.id;
 
 // @route   POST /api/v1/bookings
 exports.createBooking = async (req, res, next) => {
@@ -48,6 +51,9 @@ exports.createBooking = async (req, res, next) => {
                 message: `You have reached the limit of ${MAX_BOOKINGS_PER_USER} bookings`
             });
         }
+
+        // Not awaited: the response doesn't wait for the email provider
+        emailService.notifyBookingCreated(req.user, booking);
 
         res.status(201).json({ success: true, data: booking });
     } catch (err) {
@@ -94,7 +100,7 @@ exports.updateBooking = async (req, res, next) => {
         }
 
         // The booking and its audit log are saved together, or not at all
-        const updated = await withTransaction(async (client) => {
+        const result = await withTransaction(async (client) => {
             const before = await Booking.findByIdForUpdate(id, client);
             if (!before) return null;
 
@@ -105,13 +111,18 @@ exports.updateBooking = async (req, res, next) => {
                 bookingId: after.id,
                 details: { before: snapshot(before), after: snapshot(after) }
             }, client);
-            return after;
+            return { before, after };
         });
-        if (!updated) {
+        if (!result) {
             return res.status(404).json({ success: false, message: `No booking with the id of ${id}` });
         }
 
-        res.status(200).json({ success: true, data: updated });
+        // Sent after commit, so a rolled-back change never sends an email
+        if (isAdminActingOnOthers(req.user, result.before)) {
+            emailService.notifyBookingUpdatedByAdmin(result.before, result.after);
+        }
+
+        res.status(200).json({ success: true, data: result.after });
     } catch (err) {
         console.log(err.stack);
         res.status(500).json({ success: false, message: 'Cannot update booking' });
@@ -138,7 +149,7 @@ exports.deleteBooking = async (req, res, next) => {
         // The delete and its audit log are saved together, or not at all
         const removed = await withTransaction(async (client) => {
             const before = await Booking.findByIdForUpdate(id, client);
-            if (!before) return false;
+            if (!before) return null;
 
             await Booking.remove(id, client);
             await AuditLog.create({
@@ -147,10 +158,14 @@ exports.deleteBooking = async (req, res, next) => {
                 bookingId: before.id,
                 details: { before: snapshot(before) }
             }, client);
-            return true;
+            return before;
         });
         if (!removed) {
             return res.status(404).json({ success: false, message: `No booking with the id of ${id}` });
+        }
+
+        if (isAdminActingOnOthers(req.user, removed)) {
+            emailService.notifyBookingDeletedByAdmin(removed);
         }
 
         res.status(200).json({ success: true, data: {} });
