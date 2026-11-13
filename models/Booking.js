@@ -63,6 +63,31 @@ exports.remove = async (id, client = pool) => {
     return rowCount > 0;
 };
 
+// Every company is listed, including those with no bookings
+exports.countByCompany = async (client = pool) => {
+    const { rows } = await client.query(
+        `SELECT c.id AS company_id, c.name AS company_name, COUNT(b.id)::int AS count
+         FROM companies c
+         LEFT JOIN bookings b ON b.company_id = c.id
+         GROUP BY c.id, c.name
+         ORDER BY c.id`
+    );
+    return rows;
+};
+
+// Every date in the range is listed, including dates with no bookings
+exports.countByDate = async (startDate, endDate, client = pool) => {
+    const { rows } = await client.query(
+        `SELECT d::date AS booking_date, COUNT(b.id)::int AS count
+         FROM generate_series($1::date, $2::date, interval '1 day') AS d
+         LEFT JOIN bookings b ON b.booking_date = d::date
+         GROUP BY d
+         ORDER BY d`,
+        [startDate, endDate]
+    );
+    return rows;
+};
+
 // Returns the new booking, or null when the user has already reached the limit.
 // The user row stays locked until commit, so concurrent requests from the same
 // user run one at a time and cannot pass the limit.
