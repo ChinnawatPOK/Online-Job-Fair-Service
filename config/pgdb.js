@@ -1,8 +1,11 @@
 const { Pool, types } = require('pg');
 
 types.setTypeParser(1082, (value) => value);
+// TIMESTAMP columns have no timezone; they are stored in UTC (see options below), so read them as UTC
+types.setTypeParser(1114, (value) => new Date(`${value.replace(' ', 'T')}Z`));
 
 const pool = new Pool({
+    options: '-c timezone=UTC',
     user: process.env.DB_USER,
     host: process.env.DB_HOST,
     database: process.env.DB_NAME,
@@ -70,4 +73,21 @@ async function initTables() {
     console.log('Tables ready');
 }
 
-module.exports = { pool, initTables };
+// Runs work(client) in one transaction: commits its result, or rolls back and rethrows
+async function withTransaction(work) {
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+        const result = await work(client);
+        await client.query('COMMIT');
+        return result;
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+module.exports = { pool, initTables, withTransaction };
