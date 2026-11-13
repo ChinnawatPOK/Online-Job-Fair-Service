@@ -130,6 +130,22 @@ exports.deleteBooking = async (req, res, next) => {
     }
 };
 
+// @route   GET /api/v1/bookings/stats
+exports.getBookingStats = async (req, res, next) => {
+    try {
+        const [byCompany, byDate] = await Promise.all([
+            Booking.countByCompany(),
+            Booking.countByDate(BOOKING_DATE_START, BOOKING_DATE_END)
+        ]);
+        const total = byDate.reduce((sum, row) => sum + row.count, 0);
+
+        res.status(200).json({ success: true, data: { total, byCompany, byDate } });
+    } catch (err) {
+        console.log(err.stack);
+        res.status(500).json({ success: false, message: 'Cannot get booking statistics' });
+    }
+};
+
 // @route   GET /api/v1/bookings/me
 exports.getMyBookings = async (req, res, next) => {
     try {
