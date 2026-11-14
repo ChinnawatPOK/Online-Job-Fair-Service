@@ -1,0 +1,62 @@
+@startuml use-case-diagram
+left to right direction
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam ArrowColor #B85450
+skinparam actor {
+  BackgroundColor #FAE5C7
+  BorderColor #0E8088
+}
+skinparam usecase {
+  BackgroundColor #FAE5C7
+  BorderColor #0E8088
+}
+skinparam rectangle {
+  BorderColor #0E8088
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FAE5C7
+  BorderColor #D79B00
+  FontSize 10
+}
+
+actor "User" as Guest
+actor "Registered User" as RegisteredUser
+actor "Admin" as Admin
+
+rectangle "Online Job Fair System" {
+  usecase "Register" as Register
+  usecase "Login" as Login
+  usecase "View All\nCompanies" as ViewCompanies
+  usecase "Create\nBooking" as CreateBooking
+  usecase "View\nBooking" as ViewBooking
+  usecase "Update\nBooking" as UpdateBooking
+  usecase "Delete\nBooking" as DeleteBooking
+  usecase "Logout" as Logout
+}
+
+Guest -- Register
+
+RegisteredUser -- Login
+RegisteredUser -- ViewCompanies
+RegisteredUser -- CreateBooking
+RegisteredUser -- ViewBooking
+RegisteredUser -- UpdateBooking
+RegisteredUser -- DeleteBooking
+RegisteredUser -- Logout
+
+Admin -- Login
+Admin -- ViewCompanies
+Admin -- ViewBooking
+Admin -- UpdateBooking
+Admin -- DeleteBooking
+Admin -- Logout
+
+note "Registered User can view, update or\ndelete only their own bookings.\nAdmin can view, update or delete\nany booking." as OwnershipNote
+ViewBooking .. OwnershipNote
+UpdateBooking .. OwnershipNote
+DeleteBooking .. OwnershipNote
+@enduml
