@@ -31,6 +31,20 @@ exports.findById = async (id, client = pool) => {
     return rows[0];
 };
 
+// Locks the row until commit, so concurrent changes are logged in the order they happen
+exports.findByIdForUpdate = async (id, client) => {
+    const { rows } = await client.query('SELECT * FROM bookings WHERE id = $1 FOR UPDATE', [id]);
+    return rows[0];
+};
+
+exports.existsForUserAndCompany = async (userId, companyId, client = pool) => {
+    const { rows } = await client.query(
+        'SELECT EXISTS (SELECT 1 FROM bookings WHERE user_id = $1 AND company_id = $2) AS exists',
+        [userId, companyId]
+    );
+    return rows[0].exists;
+};
+
 // Fields left undefined keep their current value
 exports.update = async (id, { companyId, bookingDate }, client = pool) => {
     const { rows } = await client.query(
@@ -47,6 +61,31 @@ exports.update = async (id, { companyId, bookingDate }, client = pool) => {
 exports.remove = async (id, client = pool) => {
     const { rowCount } = await client.query('DELETE FROM bookings WHERE id = $1', [id]);
     return rowCount > 0;
+};
+
+// Every company is listed, including those with no bookings
+exports.countByCompany = async (client = pool) => {
+    const { rows } = await client.query(
+        `SELECT c.id AS company_id, c.name AS company_name, COUNT(b.id)::int AS count
+         FROM companies c
+         LEFT JOIN bookings b ON b.company_id = c.id
+         GROUP BY c.id, c.name
+         ORDER BY c.id`
+    );
+    return rows;
+};
+
+// Every date in the range is listed, including dates with no bookings
+exports.countByDate = async (startDate, endDate, client = pool) => {
+    const { rows } = await client.query(
+        `SELECT d::date AS booking_date, COUNT(b.id)::int AS count
+         FROM generate_series($1::date, $2::date, interval '1 day') AS d
+         LEFT JOIN bookings b ON b.booking_date = d::date
+         GROUP BY d
+         ORDER BY d`,
+        [startDate, endDate]
+    );
+    return rows;
 };
 
 // Returns the new booking, or null when the user has already reached the limit.
